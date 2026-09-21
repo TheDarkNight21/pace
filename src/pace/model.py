@@ -42,6 +42,14 @@ class Activity:
 
 @dataclass(frozen=True)
 class TurnState:
-    """When this session first observed the current prompt_id."""
+    """When this session first observed the current prompt_id, and how far the
+    bar has been filled during it.
+
+    `peak_fill` ratchets: the rendered bar is never allowed below it, so a
+    calibration replaced mid-turn cannot make the bar run backwards. It resets
+    with `first_seen` when the prompt_id changes.
+    """
     prompt_id: Optional[str]
     first_seen: float
+    peak_fill: float = 0.0
+    peak_threshold: Optional[str] = None

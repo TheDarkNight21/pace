@@ -46,3 +46,17 @@ def test_activity_absent_yields_elapsed_only():
 def test_line_never_exceeds_width(elapsed, width):
     out = line(elapsed, "editing fold.py", CAL, width=width)
     assert visible_len(out) <= width
+
+
+def test_a_supplied_fill_is_used_instead_of_recomputing():
+    """The caller's ratcheted fill wins over what the calibration alone says."""
+    recomputed = line(1.0, None, CAL, width=80)
+    supplied = line(1.0, None, CAL, width=80, fill=1.0, threshold="longer than any turn yet")
+    assert recomputed.count(FILLED) == 0
+    assert supplied.count(FILLED) == 10
+    assert "longer than any turn yet" in supplied
+
+
+def test_a_supplied_fill_without_calibration_still_draws_no_bar():
+    out = line(1.0, None, None, width=80, fill=1.0, threshold="x")
+    assert FILLED not in out and EMPTY not in out and "x" not in out

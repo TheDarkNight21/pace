@@ -106,14 +106,27 @@ def read_turn(root: Path, session_id: str) -> Optional[TurnState]:
         return None
     try:
         prompt_id = data.get("prompt_id")
+        peak_threshold = data.get("peak_threshold")
         return TurnState(
             prompt_id=str(prompt_id) if prompt_id is not None else None,
             first_seen=float(data["first_seen"]),
+            peak_fill=_peak_fill(data.get("peak_fill")),
+            peak_threshold=str(peak_threshold) if isinstance(peak_threshold, str) else None,
         )
     except (KeyError, TypeError, ValueError):
         return None
 
 
+def _peak_fill(value: object) -> float:
+    """A turn file written before the ratchet existed simply has no peak."""
+    try:
+        fill = float(value)            # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.0
+    return min(1.0, max(0.0, fill))
+
+
 def write_turn(root: Path, session_id: str, turn: TurnState) -> None:
     _write_json(_session_path(root, session_id, "turn"),
-                {"prompt_id": turn.prompt_id, "first_seen": turn.first_seen})
+                {"prompt_id": turn.prompt_id, "first_seen": turn.first_seen,
+                 "peak_fill": turn.peak_fill, "peak_threshold": turn.peak_threshold})

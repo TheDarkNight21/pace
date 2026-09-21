@@ -1,3 +1,5 @@
+import json
+
 from pace.model import Calibration, Activity, TurnState
 from pace import store
 
@@ -28,6 +30,32 @@ def test_activity_round_trips_the_checklist(tmp_path):
 def test_turn_round_trips(tmp_path):
     store.write_turn(tmp_path, "s1", TurnState(prompt_id="p1", first_seen=7.0))
     assert store.read_turn(tmp_path, "s1") == TurnState(prompt_id="p1", first_seen=7.0)
+
+
+def test_turn_round_trips_the_ratchet(tmp_path):
+    turn = TurnState(prompt_id="p1", first_seen=7.0, peak_fill=0.5,
+                     peak_threshold="past half your turns")
+    store.write_turn(tmp_path, "s1", turn)
+    assert store.read_turn(tmp_path, "s1") == turn
+
+
+def test_a_turn_file_without_the_ratchet_keys_reads_as_defaults(tmp_path):
+    """Turn files written by the previous version must still load."""
+    path = tmp_path / "sessions" / "turn" / "s1.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"prompt_id": "p1", "first_seen": 7.0}))
+    turn = store.read_turn(tmp_path, "s1")
+    assert turn == TurnState(prompt_id="p1", first_seen=7.0)
+    assert turn.peak_fill == 0.0 and turn.peak_threshold is None
+
+
+def test_a_corrupt_ratchet_value_reads_as_the_default(tmp_path):
+    path = tmp_path / "sessions" / "turn" / "s1.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"prompt_id": "p1", "first_seen": 7.0,
+                                "peak_fill": "not a number", "peak_threshold": 3}))
+    turn = store.read_turn(tmp_path, "s1")
+    assert turn.peak_fill == 0.0 and turn.peak_threshold is None
 
 
 def test_missing_files_read_as_none(tmp_path):

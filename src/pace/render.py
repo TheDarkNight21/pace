@@ -20,22 +20,30 @@ def line(elapsed: Optional[float],
          cal: Optional[Calibration],
          width: int,
          bar_width: int = 10,
-         checklist: Optional[str] = None) -> str:
+         checklist: Optional[str] = None,
+         fill: Optional[float] = None,
+         threshold: Optional[str] = None) -> str:
     """The status line, right-aligned within `width`.
 
     `elapsed is None` means the session is idle and the line stays empty.
     `cal is None` means there is not enough history for a bar, so no bar is
     drawn at all -- an empty bar would assert the turn had just begun.
+
+    `fill` (with its `threshold`) lets the caller supply a fill it has already
+    decided -- the per-turn ratchet -- instead of recomputing it here. When it
+    is None the fill is read from `cal` as before.
     """
     if elapsed is None:
         return ""
 
     prefix = ""
-    threshold = None
     if cal is not None:
-        pos = position(cal, elapsed)
-        prefix = bar.render(pos.fill, bar_width) + "  "
-        threshold = pos.threshold
+        if fill is None:
+            pos = position(cal, elapsed)
+            fill, threshold = pos.fill, pos.threshold
+        prefix = bar.render(fill, bar_width) + "  "
+    else:
+        threshold = None
 
     body = layout.join([human_duration(elapsed), checklist, activity_verb, threshold])
     return layout.right_align(prefix + body, width)

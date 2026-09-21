@@ -1,4 +1,8 @@
 import json
+import tempfile
+
+from hypothesis import given, strategies as st
+
 from pace.model import Activity, Calibration
 from pace.statusline_cmd import main, terminal_width
 from pace import store
@@ -79,3 +83,62 @@ def test_terminal_width_prefers_columns_then_falls_back():
     assert terminal_width({"COLUMNS": "254"}) == 254
     assert terminal_width({"COLUMNS": "0"}) == 80
     assert terminal_width({}) == 80
+
+
+# Two calibrations that disagree: under SHORT, 100s is already past half the
+# turns; under LONG, 101s is past only a fifth of them. A background refresh can
+# swap one for the other in the middle of a turn.
+SHORT = Calibration(
+    durations_sorted=tuple(float(i) for i in range(1, 21))
+    + tuple(float(200 + i) for i in range(20)),
+    n=40, generated_at=0.0)
+LONG = Calibration(
+    durations_sorted=tuple(float(i) for i in range(1, 9))
+    + tuple(float(200 + i) for i in range(32)),
+    n=40, generated_at=0.0)
+
+
+def test_the_bar_never_shrinks_when_the_calibration_is_replaced(tmp_path):
+    env = {"HOME": str(tmp_path), "COLUMNS": "80"}
+    root = store.state_root(env)
+    store.write_calibration(root, SHORT)
+    main(payload(), env, now=0.0)
+
+    before = main(payload(), env, now=100.0).count(FILLED)
+    store.write_calibration(root, LONG)
+    after = main(payload(), env, now=101.0).count(FILLED)
+
+    assert before == 5                     # the pre-refresh reading, for the record
+    assert after >= before
+
+
+def test_a_new_prompt_id_releases_the_ratchet(tmp_path):
+    env = {"HOME": str(tmp_path), "COLUMNS": "80"}
+    store.write_calibration(store.state_root(env), SHORT)
+    main(payload(), env, now=0.0)
+    main(payload(), env, now=300.0)                       # ratchets to a full bar
+    out = main(payload(prompt_id="p2"), env, now=301.0)   # a fresh turn starts empty
+    assert out.count(FILLED) == 0
+
+
+CALIBRATIONS = (SHORT, LONG, CAL)
+
+
+@given(steps=st.lists(st.tuples(st.floats(min_value=0.0, max_value=5000.0,
+                                          allow_nan=False, allow_infinity=False),
+                                st.integers(min_value=0, max_value=len(CALIBRATIONS) - 1)),
+                      min_size=1, max_size=12))
+def test_filled_glyphs_never_decrease_as_elapsed_grows(steps):
+    """Non-decreasing elapsed, any calibration at any moment: the bar only grows."""
+    elapsed_points = sorted(e for e, _ in steps)
+    choices = [i for _, i in steps]
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"HOME": tmp, "COLUMNS": "80"}
+        root = store.state_root(env)
+        main(payload(), env, now=0.0)
+        seen = 0
+        for elapsed, choice in zip(elapsed_points, choices):
+            store.write_calibration(root, CALIBRATIONS[choice])
+            filled = main(payload(), env, now=elapsed).count(FILLED)
+            assert filled >= seen
+            seen = filled

@@ -1,9 +1,11 @@
 """Status line renderer. Runs every couple of seconds, for every live session."""
+import dataclasses
 import json
-from typing import Mapping
+from typing import Mapping, Optional, Tuple
 
 from pace import store
-from pace.model import TurnState
+from pace.model import Calibration, TurnState
+from pace.percentiles import position
 from pace.render import line
 
 DEFAULT_WIDTH = 80
@@ -47,8 +49,33 @@ def main(stdin_text: str, env: Mapping[str, str], now: float) -> str:
     activity = store.read_activity(root, session_id)
     current = activity if activity and activity.ts >= turn.first_seen else None
 
+    cal = store.read_calibration(root)
+    fill, threshold = _ratcheted_fill(root, session_id, turn, cal, elapsed)
+
     return line(elapsed=elapsed,
                 activity_verb=current.verb if current else None,
-                cal=store.read_calibration(root),
+                cal=cal,
                 width=terminal_width(env),
-                checklist=current.checklist if current else None)
+                checklist=current.checklist if current else None,
+                fill=fill,
+                threshold=threshold)
+
+
+def _ratcheted_fill(root, session_id: str, turn: TurnState,
+                    cal: Optional[Calibration],
+                    elapsed: float) -> "Tuple[Optional[float], Optional[str]]":
+    """The fill to draw, never below what this turn has already shown.
+
+    The calibration on disk can be replaced mid-turn by a background refresh,
+    which would otherwise move the same elapsed time to a lower percentile and
+    run the bar backwards. The peak is carried on the turn, so monotonicity
+    holds whatever the cause.
+    """
+    if cal is None:
+        return None, None
+    pos = position(cal, elapsed)
+    if pos.fill < turn.peak_fill:
+        return turn.peak_fill, turn.peak_threshold
+    store.write_turn(root, session_id, dataclasses.replace(
+        turn, peak_fill=pos.fill, peak_threshold=pos.threshold))
+    return pos.fill, pos.threshold
