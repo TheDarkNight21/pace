@@ -4,9 +4,22 @@ from typing import Mapping
 
 MAX_VERB = 48
 
+# Descriptions, paths and patterns are model-supplied and reach the terminal
+# verbatim every refresh, so an ESC in one would be a live escape sequence.
+# Control characters are removed; the whitespace ones become a space first so
+# that stripping them cannot run two words together.
+_CONTROL = dict.fromkeys(range(0x20), None)
+_CONTROL[0x7F] = None
+for _whitespace in (0x09, 0x0A, 0x0B, 0x0C, 0x0D):
+    _CONTROL[_whitespace] = " "
+
 
 def _clip(text: str) -> str:
-    text = " ".join(text.split())
+    """Strip control characters, collapse whitespace, then clip to MAX_VERB.
+
+    The strip runs before the clip so a cut can never leave a severed escape.
+    """
+    text = " ".join(text.translate(_CONTROL).split())
     return text if len(text) <= MAX_VERB else text[: MAX_VERB - 1] + "…"
 
 

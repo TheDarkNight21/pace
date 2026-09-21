@@ -28,9 +28,36 @@ def test_empty_tool_name_is_neutral():
     assert verb("", {}) == "working"
 
 
+def test_an_escape_sequence_in_a_pattern_is_stripped():
+    out = verb("Grep", {"pattern": "\x1b[2Jwiped"})
+    assert "\x1b" not in out
+    assert out == "searching for '[2Jwiped'"
+
+
+def test_a_bell_in_a_bash_description_is_stripped():
+    assert verb("Bash", {"description": "ring\x07 the bell"}) == "ring the bell"
+
+
+def test_a_raw_newline_in_a_description_becomes_a_space():
+    out = verb("Bash", {"description": "First line\nsecond line"})
+    assert out == "first line second line"
+
+
+def test_an_escape_cannot_survive_the_length_clip():
+    long_description = "\x1b[31m" + "a" * 60
+    out = verb("Bash", {"description": long_description})
+    assert "\x1b" not in out and len(out) <= 48
+
+
+def test_control_characters_never_reach_a_file_path_verb():
+    out = verb("Read", {"file_path": "/a/b/we\x00ird\x1b.py"})
+    assert all(ord(c) >= 0x20 and ord(c) != 0x7F for c in out)
+
+
 @given(name=st.text(), payload=st.dictionaries(st.text(), st.text()))
 def test_verb_never_raises_and_stays_short(name, payload):
     out = verb(name, payload)
     assert isinstance(out, str)
     assert len(out) <= 48
     assert "\n" not in out
+    assert all(ord(c) >= 0x20 and ord(c) != 0x7F for c in out)
