@@ -15,11 +15,18 @@ def transcript(tmp, name, turns):
     (d / name).write_text("\n".join(lines))
 
 
-def test_gather_reads_every_transcript(tmp_path):
+def test_gather_reads_every_transcript_and_only_bounded_turns(tmp_path):
     transcript(tmp_path, "a.jsonl", [("2026-09-21T12:00:00Z", "2026-09-21T12:00:30Z"),
                                      ("2026-09-21T13:00:00Z", "2026-09-21T13:01:00Z")])
     durations = gather(tmp_path / ".claude" / "projects")
-    assert sorted(durations) == [30.0, 60.0]
+    # The last turn of a transcript ends at its last record and can absorb idle
+    # time, so it is left out however thin that leaves the history.
+    assert sorted(durations) == [30.0]
+
+
+def test_gather_never_falls_back_to_final_turns(tmp_path):
+    transcript(tmp_path, "a.jsonl", [("2026-09-21T12:00:00Z", "2026-09-21T14:00:00Z")])
+    assert gather(tmp_path / ".claude" / "projects") == []
 
 
 def test_main_writes_no_calibration_below_the_floor(tmp_path):

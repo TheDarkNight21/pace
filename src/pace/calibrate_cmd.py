@@ -3,14 +3,20 @@ from pathlib import Path
 from typing import List, Mapping, Sequence
 
 from pace import store
-from pace.percentiles import MIN_TURNS, calibrate
+from pace.percentiles import calibrate
 from pace.transcripts import turn_durations
 
 
 def gather(projects_dir: Path) -> List[float]:
-    """All bounded turn durations, falling back to final turns if too few."""
+    """Every bounded turn duration in the local transcripts, and only those.
+
+    Final turns are excluded even when that leaves too few to calibrate,
+    because a turn that ends at the transcript's last record absorbs however
+    long the user then walked away for -- a lunch break would enter the
+    distribution as a two-hour turn. Waiting for enough bounded turns shows no
+    bar for a while; blending in idle time would show a wrong one.
+    """
     bounded: List[float] = []
-    final: List[float] = []
     if not projects_dir.is_dir():
         return []
     for path in sorted(projects_dir.glob("*/*.jsonl")):
@@ -18,12 +24,9 @@ def gather(projects_dir: Path) -> List[float]:
             text = path.read_text(errors="ignore")
         except OSError:
             continue
-        b, f = turn_durations(text.splitlines())
+        b, _final = turn_durations(text.splitlines())
         bounded.extend(b)
-        final.extend(f)
-    if len(bounded) >= MIN_TURNS:
-        return bounded
-    return bounded + final
+    return bounded
 
 
 def main(argv: Sequence[str], env: Mapping[str, str], now: float) -> int:

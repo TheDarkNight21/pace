@@ -50,9 +50,16 @@ runtime dependencies are the Python standard library.
 ## Calibration
 
 `bin/pace-calibrate` reads turn durations from `~/.claude/projects/*/*.jsonl`.
-Below 20 recorded turns it writes no calibration and **no bar is drawn** — you get
-elapsed time and the current activity until the history exists. The hook refreshes
-calibration in the background when it is more than seven days old.
+It counts **bounded turns only** — turns followed by another typed prompt, so
+their end is known — and ignores the last turn of each transcript, because that
+one runs to the transcript's final record and so absorbs however long you were
+away afterwards.
+
+Below 20 bounded turns it writes no calibration and **no bar is drawn** — you get
+elapsed time and the current activity until the history exists. `/pace setup`
+builds the first calibration and tells you which of the two you have. The hook
+refreshes calibration in the background when it is more than seven days old, at
+most once every 30 minutes.
 
 ## What it doesn't do
 
