@@ -1,5 +1,6 @@
 import json
-from pace.hook_cmd import main, STALE_AFTER_SECONDS
+import pace.hook_cmd as hook_cmd
+from pace.hook_cmd import REFRESH_BACKOFF_SECONDS, STALE_AFTER_SECONDS, main
 from pace.model import Calibration
 from pace import store
 
@@ -63,3 +64,63 @@ def test_stale_calibration_is_detected(tmp_path):
     from pace.hook_cmd import calibration_is_stale
     assert calibration_is_stale(root, now=STALE_AFTER_SECONDS + 1) is True
     assert calibration_is_stale(root, now=10.0) is False
+
+
+def stale_calibration(env):
+    root = store.state_root(env)
+    store.write_calibration(root, Calibration(
+        durations_sorted=tuple(float(i) for i in range(1, 41)), n=40, generated_at=0.0))
+    return root
+
+
+def count_spawns(monkeypatch):
+    spawns = []
+    monkeypatch.setattr(hook_cmd, "_spawn_refresh", lambda: spawns.append(1))
+    return spawns
+
+
+def test_a_stale_calibration_spawns_one_refresh(tmp_path, monkeypatch):
+    env = {"HOME": str(tmp_path)}
+    root = stale_calibration(env)
+    spawns = count_spawns(monkeypatch)
+
+    main(payload(), env, now=STALE_AFTER_SECONDS + 1)
+
+    assert len(spawns) == 1
+    assert (root / "calibration.attempt").exists()
+
+
+def test_a_second_hook_within_the_backoff_does_not_spawn(tmp_path, monkeypatch):
+    env = {"HOME": str(tmp_path)}
+    stale_calibration(env)
+    spawns = count_spawns(monkeypatch)
+
+    start = STALE_AFTER_SECONDS + 1
+    main(payload(), env, now=start)
+    main(payload(), env, now=start + REFRESH_BACKOFF_SECONDS - 1)
+
+    assert len(spawns) == 1
+
+
+def test_a_hook_after_the_backoff_spawns_again(tmp_path, monkeypatch):
+    env = {"HOME": str(tmp_path)}
+    stale_calibration(env)
+    spawns = count_spawns(monkeypatch)
+
+    start = STALE_AFTER_SECONDS + 1
+    main(payload(), env, now=start)
+    main(payload(), env, now=start + REFRESH_BACKOFF_SECONDS + 1)
+
+    assert len(spawns) == 2
+
+
+def test_an_unwritable_marker_is_not_fatal(tmp_path, monkeypatch):
+    env = {"HOME": str(tmp_path)}
+    root = stale_calibration(env)
+    monkeypatch.setattr(hook_cmd.Path, "touch",
+                        lambda self, *a, **k: (_ for _ in ()).throw(OSError("read-only")))
+    spawns = count_spawns(monkeypatch)
+
+    assert main(payload(), env, now=STALE_AFTER_SECONDS + 1) == 0
+    assert len(spawns) == 1
+    assert hook_cmd.refresh_attempted_recently(root, now=STALE_AFTER_SECONDS + 1) is False
