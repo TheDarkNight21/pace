@@ -23,8 +23,16 @@ def test_right_align_keeps_ansi_but_measures_without_it():
     assert visible_len(out) == 6
 
 
-def test_right_align_truncates_from_the_left_when_too_long():
-    assert right_align("abcdef", 4) == "cdef"
+def test_right_align_truncates_from_the_right_when_too_long():
+    assert right_align("abcdef", 4) == "abc…"
+
+
+def test_truncation_keeps_the_bar_which_sits_leftmost():
+    line = "▓▓▓▓▓▓░░░░  5m · running pytest · longer than any turn yet"
+    out = right_align(line, 30)
+    assert out.startswith("▓▓▓▓▓▓░░░░")
+    assert out.endswith("…")
+    assert visible_len(out) == 30
 
 
 def test_right_align_with_nonpositive_width_returns_input():

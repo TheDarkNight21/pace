@@ -16,8 +16,16 @@ def join(segments: Sequence[Optional[str]]) -> str:
     return SEPARATOR.join(s for s in segments if s)
 
 
+ELLIPSIS = "…"
+
+
 def right_align(text: str, width: int) -> str:
-    """Pad `text` to `width`, or trim it from the left if it overflows."""
+    """Pad `text` to `width`, or trim it from the right if it overflows.
+
+    The bar is the most important element and sits leftmost, so an overflowing
+    line keeps its head and loses its tail. The kept text ends in an ellipsis so
+    the cut is visible rather than silent.
+    """
     if width <= 0:
         return text
     shown = visible_len(text)
@@ -26,4 +34,4 @@ def right_align(text: str, width: int) -> str:
     if shown < width:
         return " " * (width - shown) + text
     plain = _ANSI.sub("", text)
-    return plain[len(plain) - width:]
+    return plain[: width - len(ELLIPSIS)] + ELLIPSIS
