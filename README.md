@@ -64,6 +64,7 @@ calibration in the background when it is more than seven days old.
 
 ## Performance
 
-Measured render cost is about 27ms per invocation, against a 50ms budget — the
-status line runs on a 2-second timer for the life of the session, so it has to
-stay cheap.
+On the machine it was developed on, a render takes about 26 ms (median of 40 warmed
+invocations), against Claude Code's 2-second refresh interval. Roughly half of that is
+Python interpreter startup rather than pace's own work, so expect it to track your
+machine's `python3 -c pass` time. An unwarmed first run costs noticeably more.
