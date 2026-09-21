@@ -11,7 +11,7 @@ def _clip(text: str) -> str:
 
 
 def verb(tool_name: str, tool_input: Mapping[str, object]) -> str:
-    """A present-continuous phrase for what the model is doing right now.
+    """A short phrase for what the model is doing right now.
 
     Unknown tools return their own name: naming the tool is true, whereas
     inventing an activity for it is not.
@@ -26,27 +26,8 @@ def verb(tool_name: str, tool_input: Mapping[str, object]) -> str:
     if tool_name == "Bash":
         description = field("description")
         if description:
-            # Convert imperative verb to present-continuous form
-            words = description.split()
-            if words:
-                first_word = words[0].lower()
-                # Convert to -ing form
-                if not first_word.endswith("ing"):
-                    if first_word.endswith("e"):
-                        verb_ing = first_word[:-1] + "ing"
-                    elif (len(first_word) >= 3 and
-                          first_word[-1] not in "aeiouwy" and
-                          first_word[-2] in "aeiou"):
-                        # Double the final consonant for CVC words (run->running, sit->sitting)
-                        verb_ing = first_word + first_word[-1] + "ing"
-                    else:
-                        verb_ing = first_word + "ing"
-                else:
-                    verb_ing = first_word
-                rest = " ".join(words[1:])
-                result = verb_ing + (" " + rest if rest else "")
-                return _clip(result)
-            return _clip(description)
+            return _clip(description[0].lower() + description[1:]
+                         if description[:1].isupper() else description)
         command = field("command").strip()
         if command:
             return _clip("running " + os.path.basename(command.split()[0]))

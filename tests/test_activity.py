@@ -2,8 +2,8 @@ from hypothesis import given, strategies as st
 from pace.activity import verb
 
 
-def test_bash_uses_the_supplied_description():
-    assert verb("Bash", {"description": "Run the test suite"}) == "running the test suite"
+def test_bash_lowercases_the_supplied_description():
+    assert verb("Bash", {"description": "Run the test suite"}) == "run the test suite"
 
 
 def test_bash_without_description_falls_back_to_the_binary():
