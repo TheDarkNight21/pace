@@ -1,0 +1,6 @@
+{
+  "name": "pace",
+  "version": "0.1.0",
+  "description": "Shows elapsed time, the current activity, and where this turn sits in your own measured history.",
+  "keywords": ["statusline", "progress"]
+}

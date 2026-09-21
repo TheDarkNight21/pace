@@ -1,0 +1,11 @@
+{
+  "name": "pace",
+  "owner": {"name": "Faris Allaf"},
+  "plugins": [
+    {
+      "name": "pace",
+      "source": "./plugins/pace",
+      "description": "A status line showing where this turn stands against your own turn-duration history."
+    }
+  ]
+}
