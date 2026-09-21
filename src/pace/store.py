@@ -34,14 +34,19 @@ def _read_json(path: Path) -> Optional[dict]:
 
 
 def _write_json(path: Path, payload: dict) -> None:
+    tmp = None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
         with os.fdopen(fd, "w") as handle:
             json.dump(payload, handle)
         os.replace(tmp, str(path))
-    except OSError:
-        pass
+    except (OSError, ValueError):
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
 def _calibration_path(root: Path) -> Path:
@@ -49,8 +54,7 @@ def _calibration_path(root: Path) -> Path:
 
 
 def _session_path(root: Path, session_id: str, kind: str) -> Path:
-    suffix = ".json" if kind == "activity" else ".turn.json"
-    return root / "sessions" / (_safe_name(session_id) + suffix)
+    return root / "sessions" / kind / (_safe_name(session_id) + ".json")
 
 
 def read_calibration(root: Path) -> Optional[Calibration]:
