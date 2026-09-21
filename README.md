@@ -16,9 +16,17 @@ is roughly eightfold, so a point estimate would be decoration, not information.
 
 ## Install
 
-    /plugin marketplace add <owner>/pace
+pace is not published to a public repository yet, so install it from a local
+clone. Point the marketplace at the directory holding
+`.claude-plugin/marketplace.json` — that is this repository's root:
+
+    /plugin marketplace add /path/to/pace
     /plugin install pace
     /pace setup
+
+(Once it is published, the first line becomes `/plugin marketplace add
+<owner>/pace`. That form does not work today — there is no published repository
+behind it.)
 
 `/pace setup` writes two things to `~/.claude/settings.json` and nothing else:
 
@@ -41,6 +49,10 @@ the command for you to merge in yourself.
 
 Remove everything with `/pace setup uninstall`. This removes exactly the two
 things `install` added and restores `settings.json` to what it was before.
+
+Every write to `settings.json` — install and uninstall alike — first copies it
+to `settings.json.pace-backup` and then replaces it atomically, so an interrupted
+write cannot leave you with a truncated configuration.
 
 ## What it needs
 
