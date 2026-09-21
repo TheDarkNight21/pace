@@ -15,9 +15,13 @@ def _is_ours(command: object) -> bool:
 
 
 def has_foreign_statusline(settings: Dict) -> bool:
+    """Leave a statusLine we did not write untouched, because overwriting a
+    config we do not own is worse than not installing."""
     existing = settings.get("statusLine")
+    if existing is None:
+        return False                      # nothing there: ours to write
     if not isinstance(existing, dict):
-        return False
+        return True                       # present but malformed: not ours to touch
     return not _is_ours(existing.get("command"))
 
 
