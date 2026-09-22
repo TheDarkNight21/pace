@@ -56,6 +56,7 @@ def main(stdin_text: str, env: Mapping[str, str], now: float) -> str:
                 activity_verb=current.verb if current else None,
                 cal=cal,
                 width=terminal_width(env),
+                cfg=store.read_config(root),
                 checklist=current.checklist if current else None,
                 fill=fill,
                 threshold=threshold)

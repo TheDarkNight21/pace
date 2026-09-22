@@ -11,9 +11,9 @@ def visible_len(text: str) -> int:
     return len(_ANSI.sub("", text))
 
 
-def join(segments: Sequence[Optional[str]]) -> str:
+def join(segments: Sequence[Optional[str]], separator: str = SEPARATOR) -> str:
     """Join non-empty segments. An absent segment contributes nothing."""
-    return SEPARATOR.join(s for s in segments if s)
+    return separator.join(s for s in segments if s)
 
 
 ELLIPSIS = "…"

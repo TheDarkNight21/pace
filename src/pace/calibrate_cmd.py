@@ -32,7 +32,8 @@ def gather(projects_dir: Path) -> List[float]:
 def main(argv: Sequence[str], env: Mapping[str, str], now: float) -> int:
     home = Path(env.get("HOME", "~")).expanduser()
     durations = gather(home / ".claude" / "projects")
-    cal = calibrate(durations, now=now)
+    cfg = store.read_config(store.state_root(env))
+    cal = calibrate(durations, now=now, min_turns=cfg.min_turns)
     if cal is None:
         return 0
     store.write_calibration(store.state_root(env), cal)

@@ -4,12 +4,14 @@ FILLED = "▓"
 EMPTY = "░"
 
 
-def render(fill: float, width: int) -> str:
+def render(fill: float, width: int,
+           filled: str = FILLED, empty: str = EMPTY) -> str:
     """A bar of exactly `width` characters, `fill` of them filled."""
     if not 0.0 <= fill <= 1.0:
         raise ValueError("fill must be within [0, 1]")
     if width <= 0:
         return ""
-    filled = int(round(fill * width))
-    filled = min(width, max(0, filled))
-    return FILLED * filled + EMPTY * (width - filled)
+    filled_count = int(round(fill * width))
+    filled_count = min(width, max(0, filled_count))
+    n = filled_count
+    return filled * n + empty * (width - n)

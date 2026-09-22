@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 from typing import Mapping, Optional
 
+from pace.config import Config, parse as parse_config
 from pace.model import Activity, Calibration, TurnState
 
 _SAFE = re.compile(r"[^A-Za-z0-9_.-]")
@@ -130,3 +131,13 @@ def write_turn(root: Path, session_id: str, turn: TurnState) -> None:
     _write_json(_session_path(root, session_id, "turn"),
                 {"prompt_id": turn.prompt_id, "first_seen": turn.first_seen,
                  "peak_fill": turn.peak_fill, "peak_threshold": turn.peak_threshold})
+
+
+def config_path(root: Path) -> Path:
+    return root / "config.json"
+
+
+def read_config(root: Path) -> Config:
+    """The user's config, or defaults. Never raises — a malformed config
+    must cost the user their customisation, never their status line."""
+    return parse_config(_read_json(config_path(root)))
