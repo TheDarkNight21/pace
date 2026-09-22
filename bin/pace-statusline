@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+import os
+import sys
+import time
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
+
+from pace.statusline_cmd import main  # noqa: E402
+
+if __name__ == "__main__":
+    try:
+        sys.stdout.write(main(sys.stdin.read(), os.environ, time.time()))
+    except Exception:
+        pass          # never let the status line break the terminal
