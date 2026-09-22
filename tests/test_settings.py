@@ -177,3 +177,25 @@ def test_switching_to_in_place_clears_a_stale_runtime_copy(tmp_path):
     assert not runtime_root(env).exists()
     command = _json.loads(settings.read_text())["statusLine"]["command"]
     assert str(runtime_root(env)) not in command
+
+
+def test_reinstalling_from_a_new_root_moves_the_hook_too(tmp_path):
+    """A hook left pointing at a deleted path fails every single tool call."""
+    old_status = "python3 /old/root/bin/pace-statusline"
+    old_hook = "python3 /old/root/bin/pace-hook"
+    installed, _ = install({}, old_status, old_hook)
+
+    new_status = "python3 /new/root/bin/pace-statusline"
+    new_hook = "python3 /new/root/bin/pace-hook"
+    moved, _ = install(installed, new_status, new_hook)
+
+    assert moved["statusLine"]["command"] == new_status
+    commands = [h["command"] for e in moved["hooks"]["PostToolUse"] for h in e["hooks"]]
+    assert commands == [new_hook], "the stale hook survived a reinstall"
+
+
+def test_reinstalling_does_not_duplicate_the_hook(tmp_path):
+    once, _ = install({}, STATUS, HOOK)
+    twice, _ = install(once, STATUS, HOOK)
+    commands = [h["command"] for e in twice["hooks"]["PostToolUse"] for h in e["hooks"]]
+    assert commands.count(HOOK) == 1

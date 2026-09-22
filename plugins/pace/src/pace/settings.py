@@ -41,10 +41,20 @@ def install(settings: Dict, statusline_cmd: str,
 
     hooks = out.setdefault("hooks", {})
     entries = hooks.setdefault("PostToolUse", [])
-    already = any(HOOK_MARKER in h.get("command", "")
-                  for e in entries if isinstance(e, dict)
-                  for h in e.get("hooks", []) if isinstance(h, dict))
-    if not already:
+    # Rewrite our own hook rather than merely detecting one. Reinstalling from
+    # a different root -- switching between the copied runtime and a source
+    # tree, or moving the checkout -- must move the hook with it. Checking only
+    # for the marker would leave a hook pointing at a path that no longer
+    # exists, and a PostToolUse hook that cannot run fails every tool call.
+    found = False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        for hook in entry.get("hooks", []):
+            if isinstance(hook, dict) and HOOK_MARKER in hook.get("command", ""):
+                hook["command"] = hook_cmd
+                found = True
+    if not found:
         entries.append({"matcher": "*",
                         "hooks": [{"type": "command", "command": hook_cmd}]})
     return out, notes
