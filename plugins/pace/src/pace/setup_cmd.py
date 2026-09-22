@@ -95,9 +95,55 @@ def _report_calibration(env: Mapping[str, str], now: float) -> None:
         print("Calibrated from %d past turns." % cal.n)
 
 
+
+RUNTIME_DIRNAME = "runtime"
+
+
+def runtime_root(env: Mapping[str, str]) -> Path:
+    """Where the copied runtime lives: inside pace's own state directory."""
+    return store.state_root(env) / RUNTIME_DIRNAME
+
+
+def install_runtime(source_root: Path, target: Path) -> Optional[str]:
+    """Copy bin/ and src/ to a location that outlives the plugin directory.
+
+    A plugin is installed into a marketplace cache that is deleted on
+    uninstall or rewritten on upgrade. Pointing `statusLine.command` straight
+    at it means a removed plugin leaves Claude Code executing a path that no
+    longer exists, every two seconds, with no clue why. Copying the runtime
+    somewhere pace owns keeps the status line working and makes upgrades an
+    explicit, repeatable step rather than an invisible dependency.
+    """
+    try:
+        if target.exists():
+            shutil.rmtree(target)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        for part in ("bin", "src"):
+            shutil.copytree(source_root / part, target / part)
+        for script in (target / "bin").iterdir():
+            script.chmod(0o755)
+    except OSError as exc:
+        return str(exc)
+    return None
+
+
+def remove_runtime(target: Path) -> None:
+    """Best effort: a leftover runtime is clutter, never a failure."""
+    try:
+        if target.exists():
+            shutil.rmtree(target)
+    except OSError:
+        pass
+
+
 def main(argv: Sequence[str], env: Mapping[str, str], settings_path: Path,
          now: float) -> int:
-    root = Path(__file__).resolve().parents[2]
+    source_root = Path(__file__).resolve().parents[2]
+    args = list(argv)
+    in_place = "--in-place" in args
+    args = [a for a in args if a != "--in-place"]
+
+    root = source_root if in_place else runtime_root(env)
     statusline_cmd, hook_cmd = _commands(root)
 
     try:
@@ -112,20 +158,34 @@ def main(argv: Sequence[str], env: Mapping[str, str], settings_path: Path,
                          % (settings_path, backup_error))
         return 1
 
-    if argv and argv[0] == "uninstall":
+    if args and args[0] == "uninstall":
         error = _write_atomic(settings_path, json.dumps(uninstall(settings), indent=2))
         if error is not None:
             return _write_failed(settings_path, backup, error)
+        remove_runtime(runtime_root(env))
         print("pace removed from %s" % settings_path)
         if backup is not None:
             print("  your previous settings were copied to %s" % backup)
         return 0
+
+    if not in_place:
+        copy_error = install_runtime(source_root, root)
+        if copy_error is not None:
+            sys.stderr.write("Could not install the runtime to %s (%s); "
+                             "not writing settings.\n" % (root, copy_error))
+            return 1
 
     updated, notes = install(settings, statusline_cmd, hook_cmd)
     error = _write_atomic(settings_path, json.dumps(updated, indent=2))
     if error is not None:
         return _write_failed(settings_path, backup, error)
     print("pace installed in %s" % settings_path)
+    if in_place:
+        print("  running from the source tree at %s (--in-place)" % source_root)
+        print("  edits take effect immediately; moving this directory breaks it")
+    else:
+        print("  runtime copied to %s" % root)
+        print("  re-run setup after upgrading pace to refresh it")
     if backup is not None:
         print("  your previous settings were copied to %s" % backup)
     for note in notes:
