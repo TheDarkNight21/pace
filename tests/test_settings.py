@@ -164,3 +164,16 @@ def test_uninstall_removes_the_copied_runtime(tmp_path):
     assert setup_main(["uninstall"], env, settings, now=0.0) == 0
     assert not runtime_root(env).exists()
     assert "statusLine" not in _json.loads(settings.read_text())
+
+
+def test_switching_to_in_place_clears_a_stale_runtime_copy(tmp_path):
+    """Settings stop referencing the copy, so it must not be left behind."""
+    env = {"HOME": str(tmp_path)}
+    settings = tmp_path / "settings.json"
+    settings.write_text("{}")
+    setup_main([], env, settings, now=0.0)              # default: copies runtime
+    assert runtime_root(env).exists()
+    setup_main(["--in-place"], env, settings, now=0.0)  # switch modes
+    assert not runtime_root(env).exists()
+    command = _json.loads(settings.read_text())["statusLine"]["command"]
+    assert str(runtime_root(env)) not in command

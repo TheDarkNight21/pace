@@ -168,7 +168,12 @@ def main(argv: Sequence[str], env: Mapping[str, str], settings_path: Path,
             print("  your previous settings were copied to %s" % backup)
         return 0
 
-    if not in_place:
+    if in_place:
+        # Settings will point at the source tree, so a runtime copy from a
+        # previous default-mode install is now unreferenced. Leaving it would
+        # sit there looking authoritative while nothing reads it.
+        remove_runtime(runtime_root(env))
+    else:
         copy_error = install_runtime(source_root, root)
         if copy_error is not None:
             sys.stderr.write("Could not install the runtime to %s (%s); "
