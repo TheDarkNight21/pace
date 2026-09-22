@@ -7,6 +7,8 @@ rest of their settings, and a malformed file never costs them the status line.
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
+from pace.bar import EMPTY, FILLED
+
 # The floor on `min_turns`. Percentiles over a handful of samples are not
 # knowledge; below this the distribution is noise wearing a bar's clothes.
 MIN_TURNS_FLOOR = 5
@@ -15,8 +17,8 @@ MIN_TURNS_FLOOR = 5
 @dataclass(frozen=True)
 class Config:
     bar_width: int = 10
-    filled: str = "▓"
-    empty: str = "░"
+    filled: str = FILLED
+    empty: str = EMPTY
     separator: str = " · "
     show_threshold: bool = True
     show_bar: bool = True

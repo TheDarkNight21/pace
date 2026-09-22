@@ -95,3 +95,11 @@ def test_parse_never_raises_and_always_yields_a_usable_bar_width(raw):
     assert 1 <= cfg.bar_width <= 40
     assert len(cfg.filled) == 1 and len(cfg.empty) == 1
     assert cfg.min_turns >= MIN_TURNS_FLOOR
+
+
+def test_default_glyphs_track_the_bar_module():
+    """One source of truth. These were declared independently in two places,
+    so editing bar.FILLED changed nothing and looked like a broken install."""
+    from pace import bar
+    assert DEFAULTS.filled == bar.FILLED
+    assert DEFAULTS.empty == bar.EMPTY
