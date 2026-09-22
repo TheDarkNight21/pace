@@ -39,7 +39,7 @@ your machine.
 ```bash
 git clone https://github.com/TheDarkNight21/pace
 cd pace
-python3 bin/pace-setup
+python3 plugins/pace/bin/pace-setup
 ```
 
 Or as a Claude Code plugin, from your local clone:
@@ -50,13 +50,23 @@ Or as a Claude Code plugin, from your local clone:
 /pace setup
 ```
 
-Setup does exactly three things:
+Setup does exactly four things:
 
 1. Copies your `~/.claude/settings.json` to `settings.json.pace-backup`.
-2. Adds two keys — `statusLine`, and one `PostToolUse` hook entry. Nothing else, and no
+2. Copies pace's runtime to `~/.claude/pace/runtime/`.
+3. Adds two keys — `statusLine`, and one `PostToolUse` hook entry. Nothing else, and no
    environment variables.
-3. Builds your first calibration from `~/.claude/projects/`, and tells you how many turns it
+4. Builds your first calibration from `~/.claude/projects/`, and tells you how many turns it
    found.
+
+That second step is deliberate. A plugin lives in a marketplace cache that gets deleted when
+you uninstall it and rewritten when you upgrade. If `statusLine` pointed straight there,
+removing the plugin would leave Claude Code running a deleted script every two seconds with
+no clue why. So pace copies what it needs somewhere it owns.
+
+**After upgrading pace, re-run setup** to refresh that copy. If you are working *on* pace and
+want your edits live, install with `--in-place` instead and settings will point at your
+source tree.
 
 **If you already have a status line, pace will not touch it.** It prints the command for you
 to merge in yourself. Overwriting a config you did not write is worse than not installing.
@@ -66,10 +76,10 @@ Restart Claude Code, or open a new session, and the line appears.
 ### Uninstall
 
 ```bash
-python3 bin/pace-setup uninstall
+python3 plugins/pace/bin/pace-setup uninstall
 ```
 
-Removes exactly what it added and leaves everything else untouched.
+Removes the two settings keys and the runtime copy, and leaves everything else untouched.
 
 ## What you will see
 
@@ -158,6 +168,7 @@ unwarmed first run costs more.
 | `~/.claude/pace/calibration.json` | Your turn-duration distribution |
 | `~/.claude/pace/config.json` | Your settings, if you make one |
 | `~/.claude/pace/sessions/` | Per-session state, one small file per kind |
+| `~/.claude/pace/runtime/` | Copy of pace's own code, so the status line outlives the plugin |
 | `~/.claude/settings.json` | Two keys, on install only — backed up first |
 
 `~/.claude/projects/` is only ever **read**.
@@ -165,8 +176,11 @@ unwarmed first run costs more.
 ## Development
 
 ```bash
-python3 -m pytest        # 130 tests
+python3 -m pytest        # 137 tests
 ```
+
+The plugin is self-contained under `plugins/pace/` — `bin/`, `src/` and `commands/` all live
+inside it, so nothing has to reach outside its own root to find anything.
 
 The core is pure — transcript parsing, percentiles, bar geometry, layout and composition have
 no clock, no disk and no environment. All I/O lives in `store.py` and the three `bin/` scripts.

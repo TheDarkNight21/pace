@@ -88,3 +88,79 @@ def test_install_then_uninstall_is_identity(extra):
     """The law: setup must be perfectly reversible."""
     installed, _ = install(dict(extra), STATUS, HOOK)
     assert uninstall(installed) == extra
+
+
+# --- runtime installation ------------------------------------------------
+# A plugin lives in a marketplace cache that is deleted on uninstall and
+# rewritten on upgrade. These tests pin the behaviour that keeps a removed
+# plugin from leaving Claude Code running a path that no longer exists.
+
+import json as _json
+
+from pace import store
+from pace.setup_cmd import install_runtime, main as setup_main, remove_runtime, runtime_root
+
+
+def _fake_source(tmp_path):
+    src = tmp_path / "source"
+    (src / "bin").mkdir(parents=True)
+    (src / "src" / "pace").mkdir(parents=True)
+    (src / "bin" / "pace-statusline").write_text("#!/usr/bin/env python3\n")
+    (src / "src" / "pace" / "__init__.py").write_text("")
+    return src
+
+
+def test_install_runtime_copies_bin_and_src(tmp_path):
+    target = tmp_path / "runtime"
+    assert install_runtime(_fake_source(tmp_path), target) is None
+    assert (target / "bin" / "pace-statusline").exists()
+    assert (target / "src" / "pace" / "__init__.py").exists()
+
+
+def test_installed_scripts_are_executable(tmp_path):
+    target = tmp_path / "runtime"
+    install_runtime(_fake_source(tmp_path), target)
+    assert (target / "bin" / "pace-statusline").stat().st_mode & 0o111
+
+
+def test_install_runtime_replaces_a_previous_copy(tmp_path):
+    source, target = _fake_source(tmp_path), tmp_path / "runtime"
+    install_runtime(source, target)
+    (target / "bin" / "stale-leftover").write_text("x")
+    install_runtime(source, target)
+    assert not (target / "bin" / "stale-leftover").exists()
+
+
+def test_remove_runtime_is_silent_when_absent(tmp_path):
+    remove_runtime(tmp_path / "never-existed")      # must not raise
+
+
+def test_setup_points_settings_at_the_copied_runtime(tmp_path):
+    env = {"HOME": str(tmp_path)}
+    settings = tmp_path / "settings.json"
+    settings.write_text("{}")
+    assert setup_main([], env, settings, now=0.0) == 0
+    command = _json.loads(settings.read_text())["statusLine"]["command"]
+    assert str(runtime_root(env)) in command
+    assert (runtime_root(env) / "bin" / "pace-statusline").exists()
+
+
+def test_in_place_points_settings_at_the_source_tree(tmp_path):
+    env = {"HOME": str(tmp_path)}
+    settings = tmp_path / "settings.json"
+    settings.write_text("{}")
+    assert setup_main(["--in-place"], env, settings, now=0.0) == 0
+    command = _json.loads(settings.read_text())["statusLine"]["command"]
+    assert str(runtime_root(env)) not in command
+    assert not runtime_root(env).exists()
+
+
+def test_uninstall_removes_the_copied_runtime(tmp_path):
+    env = {"HOME": str(tmp_path)}
+    settings = tmp_path / "settings.json"
+    settings.write_text("{}")
+    setup_main([], env, settings, now=0.0)
+    assert runtime_root(env).exists()
+    assert setup_main(["uninstall"], env, settings, now=0.0) == 0
+    assert not runtime_root(env).exists()
+    assert "statusLine" not in _json.loads(settings.read_text())
